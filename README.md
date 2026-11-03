@@ -27,6 +27,10 @@ Citations:
 - [Minimalist Europe Card Bus (MECB ) – MC6809 (or HD6309) CPU Card](https://digicoolthings.com/minimalist-europe-card-bus-mecb-mc6809-or-hd6309-cpu-card/).
 - [ClaudeForth on GitHub](https://github.com/rrothwell/ClaudeForth).
 
+## Dependencies
+
+Needs ClaudeForth 1.5 as it requires HEADER and SMUDGE.
+
 ## Development Process
 
 The requirements for writing a 6809 assembler were collected by Google searches and Gemini summaries.
