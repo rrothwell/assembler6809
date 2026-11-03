@@ -150,6 +150,9 @@ HEX
 \ Set the index addressing mode.
 : INDEXED! CON, ( 20) MODE ! ;
 
+\ The initial mode is extended, as it is after each instruction.
+DEFAULT
+
 \ Is indexed addressing mode active?
 : INDEXED?   MODE @  CON, ( 20) = ;
 
