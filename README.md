@@ -57,10 +57,36 @@ It requires the forth VOCABULARY word to be defined on the target system.
 If this is not available the VOCABULARY word can be commented out,
 but some overloaded words will also need to be redefined. 
 
-```
-Example forth assembly to be added here later.
-```
+After the ASSEMBLER is loaded 
+a separate file containing developer generated CODE words can be uploaded
+and assembled on the fly for use in some application,
 
-## Testing
+```
+CODE RECEIVE ( n -- )
+    U ,++ LDY,                  \ Y = number of bytes to receive.
+    BEGIN,                      \ Outer loop: one pass per byte.
+        BEGIN,                  \ Inner loop: wait for the strobe.
+            PIA-CRA LDA,        \ Bit 7 is the CA1 interrupt flag.
+        MI UNTIL,               \ Repeat while bit 7 is clear.
+        PIA-DATA LDA,           \ Read the byte, which clears the flag.
+        RXBUF # LDX,            \ X = buffer address.
+        HEAD LDB,               \ B = index, wraps from FF to 0.
+        ABX,                    \ X = X + B, unsigned.
+        X 0, STA,               \ Store the byte at ,X.
+        INCB,
+        HEAD STB,
+        Y -1 , LEAY,            \ Y = Y - 1, sets Z when zero.
+    EQ UNTIL,                   \ Repeat while Y is not zero.
+END-CODE
+```
+See the example folder for a complete description.
+Written by Claude, but not as yet run on real hardware.
 
-Add the testing protocol.
+
+## Quality Control
+
+The ported assembler, assembler6809.fs, has been reviewed by Claude Chat on iPhone.
+This identified some minor problems that were corrected.
+
+In addition an exhaustive test suit was created. All tests pass.
+See the unit_tests folder for more details.
