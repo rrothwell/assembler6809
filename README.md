@@ -27,7 +27,7 @@ Citations:
 - [Minimalist Europe Card Bus (MECB ) – MC6809 (or HD6309) CPU Card](https://digicoolthings.com/minimalist-europe-card-bus-mecb-mc6809-or-hd6309-cpu-card/).
 - [ClaudeForth on GitHub](https://github.com/rrothwell/ClaudeForth).
 
-## Process
+## Development Process
 
 The requirements for writing a 6809 assembler were collected by Google searches and Gemini summaries.
 The complexity of the 8609 instruction set is intimidating and the advice was confusing,
@@ -46,5 +46,21 @@ opcodes and addressing modes. Of course Claude voluntarily goes further,
 as it reviews the assembler code, fixes minor bugs
 and completes the tests for the loops/branches. 
 
+## Usage
 
+The file assembler6809.fs contains ANS forth source code.
+It can only be used on an SBC with a running forth system.
+This can be uploaded to either a 6809-based SBC or a MAME emulation of such a SBC,
+via a serial communications interface.
 
+It requires the forth VOCABULARY word to be defined on the target system.
+If this is not available the VOCABULARY word can be commented out,
+but some overloaded words will also need to be redefined. 
+
+```
+Example forth assembly to be added here later.
+```
+
+## Testing
+
+Add the testing protocol.
