@@ -45,10 +45,50 @@ VARIABLE CSP
   <> ABORT" Mismatched structure" ;
 
 \ ------------------------------------------------------------
+\ Simple addressing modes
+
+\ Place these in the ASSEMBLER vocabulary.
+ONLY FORTH ALSO ASSEMBLER DEFINITIONS
+
+\ Addressing mode enumeration: 
+\     0=immediate, 10=direct, 20=indexed, 30=extended (default)
+VARIABLE MODE
+
+HEX
+0  CONSTANT CON#
+10 CONSTANT CON<
+20 CONSTANT CON,
+30 CONSTANT CON>
+
+\ Set immediate addressing mode.
+: #   CON# ( 0)  MODE ! ;
+
+\ Is immediate addressing mode active?
+: IMMEDIATE? MODE @  CON# (  0) = ;
+
+\ Set direct addressing mode.
+\ Ensures one byte can 
+\ address bytes within a page of memory
+\ pointed to by the DP register.
+\ By default this is page zero.
+: <>  CON< ( 10) MODE ! ;
+
+\ Set extended addressing mode.
+\     The default addressing mode 
+\     used by the opcode when it is not set 
+\     to something else beforehand.
+: DEFAULT   CON> ( 30) MODE ! ;
+
+\ The initial mode is extended, as it is after each instruction.
+DEFAULT
+
+\ ------------------------------------------------------------
 \ Define CODE and END-CODE
 
 \ CODE is defined in the FORTH vocabulary, 
 \ not the ASSEMBLER vocabulary as it is a defining word.
+
+ONLY ASSEMBLER ALSO FORTH DEFINITIONS
 
 \ Create a CODE word that will package 6809 assembler.
 \   Record current stack depth.
@@ -59,6 +99,7 @@ VARIABLE CSP
     !CSP
     -1 HEADER
     ALSO ASSEMBLER
+    DEFAULT
 ;
 
 
@@ -119,45 +160,19 @@ U CONSTANT SP   S CONSTANT RP
 : (,) , ;
 
 \ ------------------------------------------------------------
-\ Simple addressing modes
+\ Simple indexed addressing modes
 
-\ Addressing mode enumeration: 
-\     0=immediate, 10=direct, 20=indexed, 30=extended (default)
-VARIABLE MODE
-
-HEX
-0  CONSTANT CON#
-10 CONSTANT CON<
-20 CONSTANT CON,
-30 CONSTANT CON>
-
-\ Set immediate addressing mode.
-: #   CON# ( 0)  MODE ! ;
-
-\ Set direct addressing mode.
-\ Ensures one byte can 
-\ address bytes within a page of memory
-\ pointed to by the DP register.
-\ By default this is page zero.
-: <>  CON< ( 10) MODE ! ;
-
-\ Set extended addressing mode.
-\     The default addressing mode 
-\     used by the opcode when it is not set 
-\     to something else beforehand.
-: DEFAULT   CON> ( 30) MODE ! ;
+\ Simple indexed addressing modes
+\ Examples: 
+\    X 0, = ,X
+\    Y B, = B,X
+\    X ,++ = ,X++
 
 \ Set the index addressing mode.
 : INDEXED! CON, ( 20) MODE ! ;
 
-\ The initial mode is extended, as it is after each instruction.
-DEFAULT
-
 \ Is indexed addressing mode active?
 : INDEXED?   MODE @  CON, ( 20) = ;
-
-\ Is immediate addressing mode active?
-: IMMEDIATE? MODE @  CON# (  0) = ;
 
 \ Set indexed addressing mode.
 \ Ensure that only index registers are valid input.
@@ -172,11 +187,6 @@ HEX
     20 * OR    \ Combine regCode - 1 with postbyte.
 ;  
 
-\ Simple indexed addressing modes
-\ Examples: 
-\    X 0, = ,X
-\    Y B, = B,X
-\    X ,++ = ,X++
 
 : XMODE
     CREATE (,) ( partialPostByte "name" -- )
