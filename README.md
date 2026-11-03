@@ -26,3 +26,25 @@ Citations:
 - [MECB on GitHub](https://github.com/DigicoolThings/MECB/tree/main/MECB_6309_CPU_PLCC).
 - [Minimalist Europe Card Bus (MECB ) – MC6809 (or HD6309) CPU Card](https://digicoolthings.com/minimalist-europe-card-bus-mecb-mc6809-or-hd6309-cpu-card/).
 - [ClaudeForth on GitHub](https://github.com/rrothwell/ClaudeForth).
+
+## Process
+
+The requirements for writing a 6809 assembler were collected by Google searches and Gemini summaries.
+The complexity of the 8609 instruction set is intimidating and the advice was confusing,
+so I was drawn to the Rodriguez implementation as an existing solution. The supporting documentation
+sets the benchmark for anyone attempting any kind of Forth RPN assembler implementation.
+
+The development gradually discarded initial code and then absorbed the Rodriguez code,
+a component at a time, with modifications along the way as it was analysed.
+
+The unit testing scheme was then designed and written, comparing the 
+assembly output of the lwasm assembler (the expectation) 
+with the output of the ported assembler (the actual).
+Once the prototype scheme was functioning for simple opcodes, 
+Claude was tasked with the tedious work of adding the tests for the more complex 
+opcodes and addressing modes. Of course Claude voluntarily goes further,
+as it reviews the assembler code, fixes minor bugs
+and completes the tests for the loops/branches. 
+
+
+
