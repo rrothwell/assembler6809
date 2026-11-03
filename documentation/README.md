@@ -150,19 +150,19 @@ if necessary.
 | 5 bit offset  | n,r       | r n ,   | defaults</BR>to 8-bit| 0rrnnnnn |
 | 8 bit offset  | n,r       | r n ,   | 1rri1000 |
 | 16 bit offset | n,r       | r n ,   | 1rri1001 |
-|               |           |         |          |
+| &nbsp;        |           |         |          |
 | A-reg offset  | A,r       | r A,    | 1rri0110 |
 | B-reg offset  | B,r       | r B,    | 1rri0101 |
 | D-reg offset  | D,r       | r D,    | 1rri1011 |
-|               |           |         |          |
+| &nbsp;        |           |         |          |
 | incr. by 1    | ,r+       | r ,+    | 1rr00000 |
 | incr. by 2    | ,r++      | r ,++   | 1rri0001 |
 | decr. by 1    | ,r-       | r ,-    | 1rr00010 |
 | decr. by 2    | ,r--      | r ,--   | 1rri0011 |
-|               |           |         |          |
+| &nbsp;        |           |         |          |
 | PC ofs. 8 bit | n,PCR     | n ,PCR  | 1xxi1100 |
 | PC ofs. 16 bit| n,PCR     | n ,PCR  | 1xxi1101 |
-|               |           |         |          |
+| &nbsp;        |           |         |          |
 | 16 bit address| not</BR>allowed | not</BR>allowed | 10011111 |
 
 Note: 
@@ -179,19 +179,19 @@ where n = a signed integer value,
 | 5 bit offset   | defaults</BR>to 8-bit | defaults</BR>to 8-bit| 0rrnnnnn |
 | 8 bit offset   | [n,r]      | r n , []    | 1rri1000 |
 | 16 bit offset  | [n,r]      | r n , []    | 1rri1001 |
-|                |            |             |          |
+| &nbsp;         |            |             |          |
 | A-reg offset   | [A,r]      | r A, []     | 1rri0110 |
 | B-reg offset   | [B,r]      | r B, []     | 1rri0101 |
 | D-reg offset   | [D,r]      | r D, []     | 1rri1011 |
-|                |            |             |          |
+| &nbsp;         |            |             |          |
 | incr. by 1     | not</BR>allowed | not</BR>allowed | 1rr00000 |
 | incr. by 2     | [,r++]     | r ,++ []    | 1rri0001 |
 | decr. by 1     | not</BR>allowed | not</BR>allowed | 1rr00010 |
 | decr. by 2     | [,r--]     | r ,-- []    | 1rri0011 |
-|                |            |             |          |
+| &nbsp;         |            |             |          |
 | PC ofs. 8 bit  | [n,PCR]    | n ,PCR []   | 1xxi1100 |
 | PC ofs. 16 bit | [n,PCR]    | n ,PCR []   | 1xxi1101 |
-|                |            |             |          |
+| &nbsp;         |            |             |          |
 | 16 bit address | Not</BR>allowed  | [n]  | n [] | 10011111 |
 
 Note: 
