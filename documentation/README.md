@@ -161,9 +161,9 @@ if necessary.
 | decr. by 2    | ,r--      | r ,--   | 1rri0011 |
 |               |           |         |          |
 | PC ofs. 8 bit | n,PCR     | n ,PCR  | 1xxi1100 |
-| PC ofs. 16 bit|  n,PCR    | n ,PCR  | 1xxi1101 |
+| PC ofs. 16 bit| n,PCR     | n ,PCR  | 1xxi1101 |
 |               |           |         |          |
-| 16 bit address| not/BR>allowed | not/BR>allowed | 10011111 |
+| 16 bit address| not</BR>allowed | not</BR>allowed | 10011111 |
 
 Note: 
 where n = a signed integer value,
