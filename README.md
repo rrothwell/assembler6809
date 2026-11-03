@@ -10,7 +10,7 @@ The original was based on FIG Forth for the 6809,
 it has now been ported to ANS Forth.
 
 Additional changes include:
-- Conversion to a subroutine threading (STC). 
+- Conversion to a subroutine threading (STC) implementation. 
 - Improved formatting as a text file, instead of forth SCREENS.
 - Inclusion of the code in an ASSEMBLER VOCABULARY.
 - More explanatory comments.
@@ -22,4 +22,6 @@ Citations:
 - [B.Y.O.ASSEMBLER, Part 2:  A 6809 Forth Assembler, by Brad Rodriguez](https://www.bradrodriguez.com/papers/6809asm.txt)
 - [Original Assembler Source](https://www.bradrodriguez.com/papers/6809asmlisting.txt)
 - [Digicool Things: Minimalist Europe Card Bus (MECB) – 6309 PLCC packaged CPU Card](https://digicoolthings.com/minimalist-europe-card-bus-mecb-6309-plcc-packaged-cpu-card/)
+- [MECB on GitHub](https://github.com/DigicoolThings/MECB/tree/main/MECB_6309_CPU_PLCC)
 - [Minimalist Europe Card Bus (MECB ) – MC6809 (or HD6309) CPU Card](https://digicoolthings.com/minimalist-europe-card-bus-mecb-mc6809-or-hd6309-cpu-card/)
+- [ClaudForth on GitHub]()
