@@ -6,15 +6,15 @@ A Forth structured assembler for the MC 6809 microprocessor.
 This assembler is intended to be a developer's utility for [ClaudeForth](https://github.com/rrothwell/ClaudeForth),
 targeting the MECB 6809 single board computer (SBC).
 
-This is a port of the RPN assembler () by [Brad Rodriguez](https://www.bradrodriguez.com/papers/). 
+This is a port of the RPN assembler by [Brad Rodriguez](https://www.bradrodriguez.com/papers/). 
 The original was based on FIG Forth for the 6809,
 it has now been ported to ANS Forth.
 
 Additional changes include:
-- Conversion to a subroutine threading (STC) implementation. 
+- Conversion to support a subroutine threading (STC) implementation. 
 - Improved formatting as a text file, instead of forth SCREENS.
 - Inclusion of the code in an ASSEMBLER VOCABULARY.
-- More explanatory comments.
+- Many explanatory comments (my fault if its not quite right).
 - Exhaustive unit tests.
 - Some additional opcodes/addressing modes were added, just for completion's sake.
 
