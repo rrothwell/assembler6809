@@ -1,0 +1,459 @@
+Implementing a 6809 assembler in ANS/ISO Forth requires distinct structural changes 
+compared to older 1980s fig-FORTH variants. ANS Forth regularises 
+memory access with words like C, (compile byte) and ensures that CREATE ... DOES> 
+is standard and highly portable.
+The 6809 is a unique 8/16-bit processor because its instruction set features 
+variable-length opcodes (some utilize $10 or $11 page pre-bytes) and dynamic 
+indexing modes. To make an elegant RPN assembler, defining classes or families 
+of MI (Machine Instruction) words handles this complexity cleanly. 
+[1] (https://github.com/adumont/emu6809)
+Below is an elegant, compliant ANS Forth implementation of the opcode-defining 
+architecture for a 6809 RPN assembler.
+
+The Defining Architecture
+
+Because 6809 instructions vary widely in how they process operands, 
+a single OPCODE word is not enough. Instead, the architecture 
+is partitioned into classes based on the required post-processing at assembly-time.
+forth
+\ 6809 ANS Forth Assembler - Opcode Defining Classes
+\ Assumes standard HEX mode is active during assembly definition
+
+HEX
+
+\ Class 0: Inherent / No Operands (e.g., NOP, RTS, CLRA)
+\ At creation: Stores the opcode byte.
+\ At runtime:  Compiles the byte directly into memory.
+: 0MI ( opcode -- )
+    CREATE C,
+    DOES> ( -- )
+    C@ C, ;
+
+\ Class 1: Immediate/Direct/Extended (e.g., ADDA, ANDB, LDA)
+\ The 6809 optimizes these by grouping opcodes logically. 
+\ For instance, ADDA immediate is $8B, direct is $9B, indexed is $AB, extended is $BB.
+\ The base (immediate) byte is saved. The active addressing mode adjusts the byte value.
+: 1MI ( base-opcode -- )
+    CREATE C,
+    DOES> ( mode -- )
+    C@ + C,              \ Adjust base opcode by addressing mode offset and compile
+    \ ... [Addressing mode resolution logic follows here to compile operands] ...
+;
+
+\ Class 2: Multi-byte Opcodes / Page Pre-bytes (e.g., LDY, CMPD, STS)
+\ Opcodes on "Page 2" or "Page 3" require a prefix byte ($10 or $11).
+\ At creation: Stores both the prefix byte and the base opcode.
+: 2MI ( prefix base -- )
+    CREATE C, C,
+    DOES> ( -- )
+    DUP C@ C,            \ Compile the page prefix ($10 or $11)
+    1+  C@ C, ;          \ Compile the main opcode byte
+Use code with caution.
+
+Handling the 6809 16-Bit Register Push/Pull Opcodes
+
+Instructions like PSHS / PULS or PSHU / PULU evaluate a bitmask of registers 
+rather than standard addressing modes. A dedicated defining word manages this 
+requirement cleanly: 
+[1] (https://colorcomputerarchive.com/repo/Documents/Manuals/Programming/MC6809%20Preliminary%20Programming%20Manual%20(Motorola).pdf)
+forth
+\ Class 3: Push / Pull Instructions
+\ At runtime: Expects a bitmask value on the stack representing the registers.
+: 3MI ( opcode -- )
+    CREATE C,
+    DOES> ( register-mask -- )
+    SWAP C@ C,           \ Compile the PSH/PUL base opcode
+    C, ;                 \ Compile the register bitmask byte
+Use code with caution.
+
+Instantiating the Instruction Set
+
+Once the defining words are declared, compiling the actual RPN assembly mnemonics 
+into the Forth dictionary is highly expressive:
+forth
+\ --- Define Inherent Opcodes (Class 0) ---
+$12 0MI NOP,     $39 0MI RTS,     $3B 0MI RTI,
+$4F 0MI CLRA,    $5F 0MI CLRB,    $3D 0MI MUL,
+
+\ --- Define Register Stack Opcodes (Class 3) ---
+$34 3MI PSHS,    $35 3MI PULS,
+$36 3MI PSHU,    $37 3MI PULU,
+
+\ --- Define Page-Prefix Opcodes (Class 2) ---
+$10 $8E 2MI LDY,   \ LDY immediate uses a $10 page prefix
+$11 $83 2MI CMPU,  \ CMPU immediate uses a $11 page prefix
+Use code with caution.
+
+An Assembly Example
+
+When writing a code primitive in an ANS Forth system using this model, 
+the syntax behaves as an elegant, reverse-polish macro language:
+forth
+CODE MY-WORDS ( Example structure )
+    \ Push registers A and B to the hardware stack
+    HEX 06 PSHS,   \ Bitmask %00000110 for A and B
+    
+    \ Execute an inherent operation
+    NOP,
+    
+    \ Return from subroutine
+    RTS,
+END-CODE
+Use code with caution.
+Would you like to see how the addressing mode constants 
+(Immediate #, Indexed ,X, Extended) interact with 1MI to correctly calculate 
+the final trailing target bytes?
+======================================================
+In a comprehensive Reverse Polish Notation (RPN) Forth assembler for the Motorola 6809, 
+the instructions are systematically broken down into eight fundamental 
+opcode classes (traditionally named 0MI through 7MI).
+Because Forth executes assembly mnemonics sequentially, 
+each class must handle a different combination of base opcodes, 
+addressing modes, 6809 page-prefixes ($10 or $11), post-bytes, and branch math.
+
+The 8 6809 Opcode Classes
+
+
+Class	Name / Purpose	Runtime Behaviors & Post-processing	Core Example Mnemonics
+0MI	Inherent	Expects no arguments. Directly compiles a single fixed byte into memory.	NOP, RTS, CLRA, MUL,
+1MI	General Memory / ALU	Modifies its base byte value depending on the preceding Addressing Mode (Immediate #, Direct, Indexed ,X, or Extended).	ADDA, SUBA, ANDB, ORA,
+2MI	Page 2 Prefixed	Similar to 1MI, but automatically compiles the $10 page prefix byte before generating the base instruction and operands.	LDY, STY, CMPD, CMPY,
+3MI	Page 3 Prefixed	Automatically compiles the $11 page prefix byte before generating the base instruction and operands.	LDU, STU, CMPX, CMPU,
+4MI	Register Push / Pull	Expects an 8-bit bitmask integer on the data stack. It compiles the mnemonic, followed by the calculated post-byte.	PSHS, PULS, PSHU, PULU,
+5MI	Register Transfer / Exchange	Expects two register representations on the data stack. It compiles the base byte and packs both registers into a single post-byte.	TFR, EXG,
+6MI	Short Branches	Expects a destination address on the stack. Computes a signed 8-bit relative offset (Target - (PC + 2)) and compiles it.	BRA, BNE, BEQ, BSR,
+7MI	Long Branches	Expects a destination address. Compiles a $10 or base prefix, then computes a signed 16-bit relative offset.	LBRA, LBNE, LBEQ, LBSR,
+
+
+Implementation Breakdown of Complex Classes
+
+To see how these abstract categories function dynamically within a Forth environment, 
+the advanced structural classes (4MI through 7MI) are implemented as follows:
+forth
+HEX
+
+\ Class 4: Register Push/Pull 
+: 4MI ( opcode -- )
+    CREATE C,
+    DOES> ( register-mask -- )
+    SWAP C@ C, C, ;
+
+\ Class 5: Register Transfer & Exchange
+\ Formats two 4-bit register IDs into a single 8-bit post-byte
+: 5MI ( opcode -- )
+    CREATE C,
+    DOES> ( reg-src reg-dest -- )
+    SWAP 4 LSHIFT OR >R \ Combine into one post-byte
+    C@ C, R> C, ;
+
+\ Class 6: Short Branches (8-bit signed relative math)
+: 6MI ( opcode -- )
+    CREATE C,
+    DOES> ( target-address -- )
+    SWAP C@ C,          \ Compile the branch opcode
+    HERE 1+ -           \ Calculate offset relative to next instruction
+    DUP -80 7F WITHIN 0= ABORT" Branch out of range!" 
+    C, ;
+
+\ Class 7: Long Branches (16-bit signed relative math)
+: 7MI ( prefix opcode -- )
+    CREATE C, C,
+    DOES> ( target-address -- )
+    DUP C@ C, 1+ C@ C,  \ Compile the page prefix and the opcode
+    HERE 2 + -          \ Calculate 16-bit offset
+    , ;                 \ Compile 16-bit word (comma)
+Use code with caution.
+Would you like to examine how the 6809 Register Constants (like A, B, X, Y) 
+are defined to pass integers to 4MI and 5MI?
+
+======================================================
+To make the register push/pull (4MI) and register transfer/exchange (5MI) 
+mnemonics work seamlessly, you must define the 6809 registers as 
+numeric constants that leave their specific hardware bitmasks or IDs on the Forth data stack.
+Because 4MI uses a bitmask where each bit represents a specific register, 
+and 5MI uses a 4-bit internal register ID matrix, the register constants 
+must be carefully defined to support both paradigms, or split into separate pools 
+depending on how elegant you want the assembler syntax to be.
+
+1. Register Constants for Transfer and Exchange (5MI)
+
+The 6809 internal hardware assigns a distinct 4-bit nibble ID to every register. 
+When you execute TFR X,Y, the post-byte combines the source register ID
+ in the high nibble and the destination register ID in the low nibble.
+Here are the standard 6809 register IDs mapped as ANS Forth constants:
+forth
+HEX
+
+\ 6809 Register IDs for TFR / EXG (Class 5)
+00 CONSTANT D    01 CONSTANT X    02 CONSTANT Y
+03 CONSTANT U    04 CONSTANT S    05 CONSTANT PC
+08 CONSTANT A    09 CONSTANT B    0A CONSTANT CC
+0B CONSTANT DP
+Use code with caution.
+
+How 5MI Processes Them:
+
+When you write X Y TFR, in RPN style, the values 01 and 02 sit on the data stack 
+before TFR, executes.
+As implemented in Class 5:
+1. SWAP 4 LSHIFT OR takes source 01 (shifted to $10) and bitwise-ORs it 
+with destination 02, producing the post-byte $12.
+2. It compiles the base opcode for TFR ($1F), followed by the post-byte ($12).
+
+2. Register Constants for Push and Pull (4MI)
+
+The hardware stack operations (PSHS, PULS, PSHU, PULU) inspect a single byte 
+where each bit represents a register to be pushed or pulled. 
+The bit definition changes slightly depending on whether you are using 
+the Hardware Stack (S) or the User Stack (U).
+
+Bit	Register	PSHS / PULS	PSHU / PULU
+Bit 0 ($01)	CC	Condition Code Register	Condition Code Register
+Bit 1 ($02)	A	Accumulator A	Accumulator A
+Bit 2 ($04)	B	Accumulator B	Accumulator B
+Bit 3 ($08)	DP	Direct Page Register	Direct Page Register
+Bit 4 ($10)	X	Index Register X	Index Register X
+Bit 5 ($20)	Y	Index Register Y	Index Register Y
+Bit 6 ($40)	U / S	User Stack Pointer U	Hardware Stack Pointer S
+Bit 7 ($80)	PC	Program Counter	Program Counter
+
+
+The Syntax Dilemma: Bitmask ORing
+
+Because you often want to push multiple registers at once (e.g., A B X PSHS,), 
+Forth needs a way to combine them. There are two primary design paths for a 
+6809 Forth assembler:
+
+Approach A: The Exploded Bitmask Method (Most Flexible)
+
+Define separate, distinct constants specifically for pushing, 
+and combine them using OR or +.
+forth
+\ Distinct Bitmask Constants for PSH/PUL
+$01 CONSTANT mCC    $02 CONSTANT mA     $04 CONSTANT mB
+$08 CONSTANT mDP    $10 CONSTANT mX     $20 CONSTANT mY
+$40 CONSTANT mU     $40 CONSTANT mS     $80 CONSTANT mPC
+
+\ Usage in code:
+mA mB + mX + PSHS,  \ Calculates bitmask $16, compiles $34 $16
+Use code with caution.
+
+Approach B: Dual-Purpose Overlay Matrix (Most Common in Classic Forth)
+
+To avoid polluting the namespace with m-prefixed words, standard assemblers often 
+use the same register names (A, B, X) but override or adapt their functionality, 
+or use a custom concatenator word like +REG.
+If you use a smart combinator function, you can translate the base IDs into 
+bitmasks algorithmically:
+forth
+\ An elegant word to logically chain multiple registers into a stack mask
+: +REG ( mask register-id -- new-mask )
+    CASE
+        $00 OF $06 OR ENDOF \ D register pushes both A and B ($02 + $04)
+        $01 OF $10 OR ENDOF \ X
+        $02 OF $20 OR ENDOF \ Y
+        $03 OF $40 OR ENDOF \ U
+        $04 OF $40 OR ENDOF \ S
+        $05 OF $80 OR ENDOF \ PC
+        $08 OF $02 OR ENDOF \ A
+        $09 OF $04 OR ENDOF \ B
+        $0A OF $01 OR ENDOF \ CC
+        $0B OF $08 OR ENDOF \ DP
+    ENDCASE ;
+Use code with caution.
+Using this smart combinator approach, your assembly code reads cleanly 
+using the core register constants without creating massive overlaps:
+forth
+0 A +REG B +REG X +REG PSHS,
+Use code with caution.
+Would you like to see how the assembler dynamically handles the Indexed 
+Addressing Mode (,X or D,Y) post-byte generation, which is notoriously the 
+trickiest part of a 6809 assembler?
+======================================================
+The Motorola 6809 features a highly sophisticated indexed addressing matrix. 
+To specify how the target address is computed 
+(using 5-bit, 8-bit, or 16-bit constants, accumulator offsets, 
+or auto-incrementing/decrementing pointers), the CPU relies on an 
+Indexed Post-Byte. 
+[1] (https://www.youtube.com/watch?v=vlE74b8RVxc), 
+[2] (https://www.sbprojects.net/sbasm/6809.php), 
+[3] (https://www.chibiakumas.com/6809/?noui=1), 
+[4] (http://www.acornatom.nl/sites/atomreview/howel/parts/6809_operation.htm)
+In a postfix, RPN Forth assembler, addressing modes are cleanly separated 
+into data structures or state flags. When the user executes a line like 
+,X or D,Y, they run a Forth word that pushes mode descriptors onto the data stack. 
+The mnemonic word (e.g., LDA,) then pops those descriptors and maps them 
+directly into the hardware post-byte layout. 
+[1] (https://www.chibiakumas.com/6809/?noui=1), 
+[2] (http://www.acornatom.nl/sites/atomreview/howel/parts/6809_operation.htm)
+
+1. The 6809 Post-Byte Spec Layout
+
+The hardware decodes the post-byte based on its Highest Bit (Bit 7): 
+[1] (http://www.acornatom.nl/sites/atomreview/howel/parts/6809_operation.htm)
+• Bit 7 is 0: 5-bit signed offset mode (0 RR nnnnn). 
+The offset is integrated entirely into the post-byte.
+• Bit 7 is 1: Sub-mode selection (1 RR i xxxx), where i 
+  acts as the Indirect addressing flag, and xxxx determines whether 
+  it's an 8/16-bit offset, an accumulator offset, 
+  or an auto-increment/decrement instruction. 
+[1] (https://www.scribd.com/document/71242877/Addressing-Modes), 
+[2] (http://www.acornatom.nl/sites/atomreview/howel/parts/6809_operation.htm)
+
+2. State Encoding in the Forth Stack
+
+To handle this dynamically, register constants pass both their index base ID
+ (X=00, Y=01, U=10, S=11) and a parsing mode token. 
+ [1] (https://www.scribd.com/document/71242877/Addressing-Modes)
+======================================================
+Here is the complete table of the Motorola 6809 relative branch instructions. It includes both short branches (8-bit offsets) and long branches (16-bit offsets), complete with their hexadecimal opcodes and direct logical opposites. [1] (https://www.maddes.net/m6809pm/appendix_d.htm), [2] (http://avellano.usal.es/~compii/6809.pdf), [3] (https://colorcomputerarchive.com/repo/Documents/Datasheets/MC6809-MC6809E%20Reference%20Card%20(Motorola).pdf)
+
+Mnemonic	Short Opcode	Long Opcode	Description / Condition	Opposite Mnemonic	Opposite Short Opcode	Opposite Long Opcode
+BRA	20	16	Branch Always	BRN	21	10 21
+BRN	21	10 21	Branch Never (NOP)	BRA	20	16
+
+BNE	26	10 26	Branch if Not Equal (\(Z=0\))	BEQ	27	10 27
+BEQ	27	10 27	Branch if Equal (\(Z=1\))	BNE	26	10 26
+
+BCC / BHS	24	10 24	Branch if Carry Clear / Higher or Same (\(C=0\))	BCS / BLO	25	10 25
+BCS / BLO	25	10 25	Branch if Carry Set / Lower (\(C=1\))	BCC / BHS	24	10 24
+BPL	2A	10 2A	Branch if Plus (\(N=0\))	BMI	2B	10 2B
+BMI	2B	10 2B	Branch if Minus (\(N=1\))	BPL	2A	10 2A
+BVC	28	10 28	Branch if Overflow Clear (\(V=0\))	BVS	29	10 29
+BVS	29	10 29	Branch if Overflow Set (\(V=1\))	BVC	28	10 28
+BHI	22	10 22	Branch if Higher (Unsigned, \(C \lor Z = 0\))	BLS	23	10 23
+BLS	23	10 23	Branch if Lower or Same (Unsigned, \(C \lor Z = 1\))	BHI	22	10 22
+BGE	2C	10 2C	Branch if Greater or Equal (Signed, \(N \oplus V = 0\))	BLT	2D	10 2D
+BLT	2D	10 2D	Branch if Less Than (Signed, \(N \oplus V = 1\))	BGE	2C	10 2C
+BGT	2E	10 2E	Branch if Greater Than (Signed, \(Z \lor (N \oplus V) = 0\))	BLE	2F	10 2F
+BLE	2F	10 2F	Branch if Less or Equal (Signed, \(Z \lor (N \oplus V) = 1\))	BGT	2E	10 2E
+
+Note: BSR (Branch to Subroutine, opcode 8D) and LBSR (Long Branch to Subroutine, opcode 17) are functional control execution branches rather than conditional checks, so they do not have a logical "opposite" instruction. [1] (https://www.chibiakumas.com/6809/?noui=1), [2] (https://www.maddes.net/m6809pm/appendix_d.htm)
+If you want to optimize your code further, I can help you with calculating exact branch offsets or structuring position-independent code (PIC) loops. Which approach are you using for your project? [1] (https://6809.uk/doc/doku.php?id=6809_overview)
+======================================================
+To calculate the exact branch offsets manually for the Motorola 6809, you must use Program Counter (PC)-relative addressing. [1] (https://frank.pocnet.net/other/sos/Motorola_MC6809-MC6809E_ProgrammingManual_1981.pdf), [2] (https://colorcomputerarchive.com/repo/Documents/Microprocessors/MC6809/Commonly%20used%20MC6809%20instructions.pdf)
+The single most critical rule to remember for the 6809 is: The Program Counter (PC) always points to the next sequential instruction following the branch when the offset is added. [1] (https://frank.pocnet.net/other/sos/Motorola_MC6809-MC6809E_ProgrammingManual_1981.pdf), [2] (https://www.youtube.com/watch?v=GkqiZIU2E9k&t=223)
+The golden formula for calculating the offset is:
+\(\text{Offset}=\text{Destination\ Address}-\text{PC\ of\ the\ Next\ Instruction}\)
+\(\text{Offset}=\text{Destination\ Address}-(\text{Branch\ Instruction\ Address}+\text{Branch\ Instruction\ Length})\)
+
+Step-by-Step Calculation Guide
+
+
+1. Determine the Branch Instruction Length
+
+Before subtracting, you need to know exactly how many bytes the current branch instruction occupies: [1] (https://www.sbprojects.net/sbasm/6809.php)
+• Short Conditional Branches: 2 bytes (1 byte for opcode + 1 byte for offset).
+• Short Unconditional Branch (BRA): 2 bytes (1 byte for opcode + 1 byte for offset).
+• Long Unconditional Branch (LBRA): 3 bytes (1 byte for opcode + 2 bytes for offset).
+• Long Conditional Branches: 4 bytes (2 bytes for pre-byte/opcode + 2 bytes for offset). [1] (https://www.maddes.net/m6809pm/appendix_d.htm), [2] (https://www.chibiakumas.com/6809/)
+
+2. Perform Hexadecimal Subtraction
+
+Subtract the next instruction's address from your target label destination address. [1] (http://retro.hansotten.nl/uploads/6809kit/programmingbook2.pdf)
+
+3. Convert to Two's Complement (if negative)
+
+• If the destination is forward, your offset is positive. Ensure it fits within standard bounds ($00 to $7F for short branches).
+• If the destination is backward (a loop), your offset is negative. You must convert it into 8-bit or 16-bit Two's Complement. [1] (https://stackoverflow.com/questions/47785977/how-to-calculate-branch-instruction-offset), [2] (https://eng.libretexts.org/Bookshelves/Computer_Science/Programming_Languages/Introduction_To_MIPS_Assembly_Language_Programming_(Kann)/07%3A_Assembly_Language_Program_Control_Structures/7.08%3A_How_to_Calculate_Branch_Amounts_in_Machine_Code)
+
+Concrete Examples
+
+
+Example 1: Short Forward Branch (BNE)
+
+Imagine your branch instruction sits at address \$0100, and you want to jump forward to a label at \$010A.
+1. Branch Address: \$0100 (BNE short is 2 bytes long).
+2. Next Instruction PC: \$0100 + 2 = $0102`
+3. Calculate:
+\(\text{Offset}=\$010A-\$0102=\$08\)
+4. Resulting Machine Code: 26 08 (where 26 is BNE and 08 is the offset). [1] (https://www.maddes.net/m6809pm/appendix_d.htm)
+
+Example 2: Short Backward Branch (BRA Loop)
+
+You have a loop where the target label is at $0200 and your BRA instruction is at address $020D. [1] (https://www.youtube.com/watch?v=uN50fBeGpt4)
+1. Branch Address: $020D (BRA is 2 bytes long). [1] (https://www.youtube.com/watch?v=uN50fBeGpt4)
+2. Next Instruction PC: $020D + 2 = \$020F [1] (https://www.youtube.com/watch?v=uN50fBeGpt4)
+3. Calculate:
+\(\text{Offset}=\$0200-\$020F=-\$0F\)
+4. Two's Complement: Convert -$0F into an 8-bit signed value.
+	• $FF - $0F = $F0
+	• $F0 + 1 = $F1
+5. Resulting Machine Code: 20 F1 (where 20 is BRA and F1 is the offset).
+
+Example 3: Long Backward Branch (LBEQ)
+
+You need to branch backwards to an address far away at $1000. Your LBEQ instruction sits at $1500.
+1. Branch Address: $1500 (LBEQ is 4 bytes long). [1] (https://www.maddes.net/m6809pm/appendix_d.htm)
+2. Next Instruction PC: $1500 + 4 = \$1504
+3. Calculate:
+\(\text{Offset}=\$1000-\$1504=-\$504\)
+4. Two's Complement: Convert -$0504 into a 16-bit signed value.
+	• $FFFF - $0504 = $FAFB
+	• $FAFB + 1 = $FAFC
+5. Resulting Machine Code: 10 27 FA FC (where 10 27 is LBEQ and FA FC is the 16-bit offset).
+
+Bounds and Constraints Reference Table
+
+
+Branch Type	Offset Size	Minimum Offset	Maximum Offset
+Short Relative	8-bit signed	-$80 (-128 bytes)	+$7F (+127 bytes)
+Long Relative	16-bit signed	-$8000 (-32,768 bytes)	+$7FFF (+32,767 bytes)
+
+💡 Quick Rule of Thumb: If a short backward branch targets itself to create an infinite stall loop (e.g., HERE BRA HERE), the offset is always $FE (Destination - (Branch + 2) = 0 - 2 = -2 → $FE).
+Are you hand-assembling a specific code block right now? If you share the addresses and instructions of your loop, I can calculate the exact hex bytes for you!
+
+======================================================
+In the Motorola 6809 microprocessor, $10 and $11 are the two prebytes (or prefix bytes) used to expand the standard opcode matrix. [1] (https://techheap.packetizer.com/processors/6809/6809.html), [2] (https://www.maddes.net/m6809pm/appendix_f.htm)
+Because the 6809 is primarily an 8-bit architecture with a single-byte native opcode structure (giving up to 256 combinations), it uses these prefix bytes to switch to "Page 2" and "Page 3" opcode maps. This allows the CPU to process more complex 16-bit arithmetic, secondary index register operations, and long branches. [1] (https://colorcomputerarchive.com/repo/Documents/Datasheets/MC6809-MC6809E%20Reference%20Card%20(Motorola).pdf), [2] (http://avellano.usal.es/~compii/6809.pdf), [3] (https://www.maddes.net/m6809pm/appendix_f.htm)
+
+The 6809 Opcode Pages
+
+• Page 1 (No Prebyte): Consists of standard 8-bit operations, short branches, and primary register operations (primarily manipulating accumulators A and B or index register X). [1] (https://en.wikipedia.org/wiki/Motorola_6809), [2] (https://github.com/Ta0uf19/Motorola-6809-Cheatsheet)
+• Page 2 (Prebyte $10): Used primarily for operations involving secondary or system-level 16-bit registers (Y, U, S), 16-bit comparisons (CMPD, CMPY), and Long Branches (LBcc). [1] (https://www.facebook.com/groups/4943488865/posts/10163830706518866/), [2] (https://colorcomputerarchive.com/repo/Documents/Datasheets/MC6809-MC6809E%20Reference%20Card%20(Motorola).pdf), [3] (https://www.maddes.net/m6809pm/appendix_f.htm)
+• Page 3 (Prebyte $11): Used for highly specialized instructions and 16-bit operations targeting alternative registers, such as comparing the user stack pointer or hardware stack pointer (CMPU, CMPS). [1] (https://www.maddes.net/m6809pm/appendix_f.htm)
+
+Examples of Prebyte Usage
+
+
+Instruction	Machine Code (Hex)	Purpose / Description
+BEQ label	27 [offset]	Short Branch (Page 1): Uses a 1-byte relative offset (range ±127 bytes).
+LBEQ label	10 27 [offset_high] [offset_low]	Long Branch (Page 2): Uses the $10 prebyte followed by the same branch code to handle a 16-bit relative offset.
+LDX #$1234	8E 12 34	Load Index X (Page 1): Core register operation natively handled on Page 1.
+LDY #$1234	10 8E 12 34	Load Index Y (Page 2): Uses the $10 prebyte to apply the same operation to the secondary index register Y.
+CMPD #$1234	10 83 12 34	Compare Accumulator D (Page 2): Complex 16-bit double-accumulator comparison.
+CMPU #$1234	11 83 12 34	Compare User Stack (Page 3): Uses the $11 prebyte to target the U register.
+
+
+Performance Trade-off
+
+While prebytes vastly expanded the 6809's capabilities—giving it some of the power of a 16-bit CPU—they came with a performance penalty. Every prebyte requires an extra instruction fetch cycle and consumes 1 additional byte of memory. [1] (https://www.facebook.com/groups/4943488865/posts/10163830706518866/)
+If you are writing or optimizing code for a system like the Hitachi 6309 (the enhanced CMOS successor to the 6809), let me know! The 6309 actually adds a third prebyte ($1F) to access an even deeper hidden instruction set (Page 4) featuring native 32-bit arithmetic and block transfers.
+======================================================
+The $1F byte is not a prebyte (prefix) on the Hitachi 6309—it is actually the native standard opcode for the TFR (Transfer Register) instruction. [1] (https://colorcomputerarchive.com/repo/Documents/Books/Motorola%206809%20and%20Hitachi%206309%20Programming%20Reference%20(Darren%20Atkinson).pdf)
+The confusion stems from how the 6309 expands its opcode matrix. While the 6309 does add a fourth opcode map, it does not use $1F to get there.
+
+What $1F actually does
+
+On both the 6809 and 6309, $1F is a Page 1 instruction for TFR r0, r1. It requires an immediate 1-byte postbyte to determine the source and destination registers. [1] (https://colorcomputerarchive.com/repo/Documents/Books/Motorola%206809%20and%20Hitachi%206309%20Programming%20Reference%20(Darren%20Atkinson).pdf), [2] (https://www.scribd.com/document/649459771/Motorola-6809-and-Hitachi-6309-Programming-Reference-Darren-Atkinson-146-153), [3] (https://frank.pocnet.net/other/sos/Hitachi_8-16-BitMicroprocessor_1986.pdf)
+Because the 6309 introduces several new registers (E, F, W, V, MD), the $1F instruction becomes much more powerful on the 6309: [1] (https://en.wikipedia.org/wiki/Hitachi_6309), [2] (https://vice-emu.sourceforge.io/manual/vice.pdf)
+• It handles transitions between the new 8-bit registers (E, F).
+• It copies the new 16-bit registers (W and the virtual zero register V).
+• It can even truncate or sign-extend data dynamically if you transfer a 16-bit register to an 8-bit register (or vice versa). [1] (https://colorcomputerarchive.com/coco/Documents/Books/The%206309%20Book%20(Burke%20&%20Burke).pdf), [2] (https://www.chibiakumas.com/6809/6309.php?noui=1), [3] (https://en.wikipedia.org/wiki/Hitachi_6309), [4] (https://colorcomputerarchive.com/repo/Documents/Books/Motorola%206809%20and%20Hitachi%206309%20Programming%20Reference%20(Darren%20Atkinson).pdf)
+
+The Real 6309 "Page 4" Prebyte: $11 Extensions
+
+To fit its new block moves, 32-bit math, and bit manipulations into the architecture, Hitachi did not introduce a net new prebyte like $1F. Instead, they overloaded the existing $11 prebyte page and added a new $10 sub-map.
+The 6309 instructions that represent the "New Page 4" equivalents are mapped primarily under the $11 prebyte prefix alongside secondary registers, or as brand-new opcodes on Page 1.
+The core 6309-exclusive instructions grouped into these maps include:
+
+Opcode / Prefix Structure	New 6309 Instructions	Description
+$11 Prebyte Map	ADDW, SUBW, CMPW, LDW, STW	16-bit math and memory operations directly targeting the new W register (which combines E and F).
+$11 Prebyte Map	LDQ, STQ	32-bit load and store operations for the massive Q register (combining D and W).
+$11 Prebyte Map	MULD, DIVD, DIVQ	16-bit hardware multiplication and 32-bit hardware division.
+Page 1 (New Native Opcodes)	TFM ($13 series)	Transfer From Memory: The highly efficient, interruptible block copy/fill instructions (TFM r0+, r1+, etc.).
+Page 1 (New Native Opcodes)	AIM, OIM, EIM, TIM	Logical Operations in Memory: Allows AND, OR, XOR, and Bit Tests directly on memory without destroying accumulator contents.
+Page 1 (New Native Opcodes)	BAND, BOR, BEOR	Bitwise Accumulator Math: Single-bit logic operations targeting the carry flag.
+
+Are you trying to resolve an assembler error involving $1F, or are you writing a custom emulator / compiler for the 6309? I can provide the exact postbyte bit-mapping for TFR if you need to manually decode it.
+======================================================
