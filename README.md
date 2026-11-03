@@ -3,7 +3,7 @@
 ## Introduction
 
 A Forth structured assembler for the MC 6809 microprocessor. 
-This assembler is intended to be a developer's utility for [ClaudeForth]((https://github.com/rrothwell/ClaudeForth)),
+This assembler is intended to be a developer's utility for [ClaudeForth](https://github.com/rrothwell/ClaudeForth),
 targeting the MECB 6809 single board computer (SBC).
 
 This is a port of the RPN assembler () by [Brad Rodriguez](https://www.bradrodriguez.com/papers/). 
@@ -25,4 +25,4 @@ Citations:
 - [Digicool Things: Minimalist Europe Card Bus (MECB) – 6309 PLCC packaged CPU Card](https://digicoolthings.com/minimalist-europe-card-bus-mecb-6309-plcc-packaged-cpu-card/).
 - [MECB on GitHub](https://github.com/DigicoolThings/MECB/tree/main/MECB_6309_CPU_PLCC).
 - [Minimalist Europe Card Bus (MECB ) – MC6809 (or HD6309) CPU Card](https://digicoolthings.com/minimalist-europe-card-bus-mecb-mc6809-or-hd6309-cpu-card/).
-- [ClaudForth on GitHub](https://github.com/rrothwell/ClaudeForth).
+- [ClaudeForth on GitHub](https://github.com/rrothwell/ClaudeForth).
